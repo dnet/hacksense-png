@@ -30,6 +30,21 @@
 $status = file_get_contents('http://vsza.hu/hacksense/status.csv');
 $status_data = explode(';', $status);
 
+$lm = strptime($status_data[1], '%F %T'); // ISO 9075
+$lm_ts = mktime($lm['tm_hour'], $lm['tm_min'], $lm['tm_sec'],
+	$lm['tm_mon'] + 1, $lm['tm_mday'], $lm['tm_year'] + 1900);
+
+if (isset($_SERVER['HTTP_IF_MODIFIED_SINCE'])) {
+	$ims = strtotime(
+		preg_replace('/;.*$/', '', $_SERVER['HTTP_IF_MODIFIED_SINCE']));
+	if ($ims >= $lm_ts) {
+		header('HTTP/1.0 304 Not Modified');
+		exit();
+	}
+}
+
+header('Last-Modified: ' . date('r', $lm_ts));
+
 $ok = count($status_data) == 3;
 if ($ok && file_exists('cache.id') && file_exists('cache.png')) {
 	$cache = file_get_contents('cache.id');
