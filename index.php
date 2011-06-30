@@ -27,33 +27,17 @@
 
 */
 
-$status = file_get_contents('http://vsza.hu/hacksense/status.csv');
-$status_data = explode(';', $status);
-
-$lm = strptime($status_data[1], '%F %T'); // ISO 9075
-$lm_ts = mktime($lm['tm_hour'], $lm['tm_min'], $lm['tm_sec'],
-	$lm['tm_mon'] + 1, $lm['tm_mday'], $lm['tm_year'] + 1900);
-
-if (isset($_SERVER['HTTP_IF_MODIFIED_SINCE'])) {
-	$ims = strtotime(
-		preg_replace('/;.*$/', '', $_SERVER['HTTP_IF_MODIFIED_SINCE']));
-	if ($ims >= $lm_ts) {
-		header('HTTP/1.0 304 Not Modified');
-		exit();
-	}
+$ch = curl_init('http://vsza.hu/hacksense/status.csv');
+if (file_exists('cache.id')) {
+	$last_id = file_get_contents('cache.id');
+	curl_setopt($ch, CURLOPT_HTTPHEADER, array("If-None-Match: $last_id"));
 }
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+$status = curl_exec($ch);
 
-header('Last-Modified: ' . date('r', $lm_ts));
+if (!empty($status)) {
+	$status_data = explode(';', $status);
 
-$ok = count($status_data) == 3;
-if ($ok && file_exists('cache.id') && file_exists('cache.png')) {
-	$cache = file_get_contents('cache.id');
-	$use_cache = $cache == $status_data[0];
-} else {
-	$use_cache = false;
-}
-
-if (!$use_cache) {
 	$im = imagecreatetruecolor(240, 70);
 
 	$red   = imagecolorallocate($im, 0xFF, 0x00, 0x00);
@@ -86,9 +70,15 @@ if (!$use_cache) {
 
 	imagepng($im, 'cache.png');
 	imagedestroy($im);
-	file_put_contents('cache.id', $status_data[0]);
+	$last_id = $status_data[0];
+	file_put_contents('cache.id', $last_id);
+} elseif (isset($_SERVER['HTTP_IF_NONE_MATCH']) &&
+		$_SERVER['HTTP_IF_NONE_MATCH'] == $last_id) {
+	header('HTTP/1.0 304 Not Modified');
+	die();
 }
 
+header('ETag: ' . $last_id);
 header('Content-type: image/png');
 readfile('cache.png');
 
