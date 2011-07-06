@@ -45,7 +45,7 @@ if (!empty($status)) {
 	$black = imagecolorallocate($im, 0x00, 0x00, 0x00);
 	$green = imagecolorallocate($im, 0x90, 0xEE, 0x90);
 
-	if ($ok) {
+	if (count($status_data) == 3) {
 		$open = $status_data[2][0] == 1;
 		imagefill($im, 0, 0, $open ? $green : $red);
 		// Text
